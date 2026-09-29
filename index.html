@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ล่าสมบัติมรณะ - คณิตศาสตร์ ป.2</title>
+    <!-- Google Font: Mitr -->
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Tone.js CDN for procedural sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <!-- MediaPipe Hands & Camera Utils CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Mitr', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #0b0c16;
+            color: #fff;
+            position: relative;
+        }
+
+        #webcam-video {
+            display: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Screen Layout & Overlays */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, rgba(30, 25, 60, 0.94) 0%, rgba(10, 8, 25, 0.98) 100%);
+            color: #fff;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+
+        .screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            border: 2px solid rgba(255, 215, 0, 0.35);
+            border-radius: 28px;
+            padding: 35px;
+            width: 660px;
+            max-width: 92%;
+            text-align: center;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(255, 215, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #FFD700;
+            margin-bottom: 12px;
+            text-shadow: 0 4px 16px rgba(255, 215, 0, 0.4);
+            letter-spacing: 1px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: #00e1d9;
+            margin-bottom: 15px;
+        }
+
+        p, li {
+            font-size: 1.05rem;
+            color: #f1f2f6;
+            line-height: 1.6;
+        }
+
+        ul {
+            text-align: left;
+            margin: 15px 0;
+            padding-left: 24px;
+        }
+
+        /* System Check List */
+        .check-list {
+            margin: 20px 0;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 16px 22px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .check-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            font-size: 1.15rem;
+        }
+
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top: 3px solid #FFD700;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .check-status {
+            font-weight: 600;
+        }
+        .check-status.success { color: #2ecc71; }
+        .check-status.error { color: #e74c3c; }
+        .check-status.waiting { color: #f1c40f; }
+
+        /* Action Buttons */
+        .btn {
+            background: linear-gradient(180deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            border: none;
+            padding: 14px 38px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #1e824c, 0 12px 24px rgba(0,0,0,0.4);
+            transition: all 0.12s ease;
+            margin-top: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #1e824c, 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        .btn:disabled {
+            background: #4a5568;
+            box-shadow: 0 5px 0 #2d3748;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn-alt {
+            background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+            box-shadow: 0 6px 0 #1f618d, 0 12px 24px rgba(0,0,0,0.4);
+        }
+        .btn-alt:active:not(:disabled) {
+            box-shadow: 0 2px 0 #1f618d;
+        }
+
+        #game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .hud-top {
+            position: absolute;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            background: rgba(12, 14, 30, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 10px 30px;
+            border-radius: 40px;
+            border: 2px solid rgba(255, 215, 0, 0.45);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            pointer-events: auto;
+        }
+
+        .hud-box {
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #d1d8e0;
+            min-width: 90px;
+        }
+
+        .hud-box span {
+            display: block;
+            color: #FFD700;
+            font-size: 1.45rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Notification Banner */
+        #notification-banner {
+            position: absolute;
+            top: 96px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 15, 30, 0.88);
+            color: #FFD700;
+            padding: 8px 32px;
+            border-radius: 25px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            text-align: center;
+            max-width: 90%;
+            pointer-events: none;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        /* Popup Center Text */
+        #popup-center {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.6);
+            font-size: 3.5rem;
+            font-weight: 700;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 30;
+            text-shadow: 0 6px 25px rgba(0, 0, 0, 0.9);
+            white-space: nowrap;
+        }
+        #popup-center.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+        .popup-green { color: #2ecc71; }
+        .popup-red { color: #e74c3c; }
+        .popup-gold { color: #f1c40f; }
+
+        .side-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+            z-index: 20;
+        }
+
+        .toggle-btn {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #27ae60;
+            transition: all 0.1s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            min-width: 145px;
+        }
+        .toggle-btn.off {
+            background: #34495e;
+            box-shadow: 0 4px 0 #243342;
+            color: #bdc3c7;
+        }
+        .toggle-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #27ae60;
+        }
+        .toggle-btn.off:active {
+            box-shadow: 0 1px 0 #243342;
+        }
+
+        /* Hand Tracking Indicator & Virtual Cursor */
+        #virtual-pointer {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,215,0,0.85) 60%, rgba(255,165,0,0) 100%);
+            border: 2px solid #fff;
+            box-shadow: 0 0 18px #ffd700, 0 0 35px #ff9f1a;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 40;
+            display: none;
+            transition: transform 0.05s linear;
+        }
+
+        /* Charge Bar HUD attached to cursor or floating */
+        #charge-hud-container {
+            position: absolute;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 41;
+            transform: translate(-50%, -130%);
+        }
+        .charge-track {
+            width: 16px;
+            height: 80px;
+            background: rgba(10, 15, 30, 0.85);
+            border: 2px solid rgba(255, 215, 0, 0.8);
+            border-radius: 9px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 2px;
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+        }
+        .charge-fill {
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(180deg, #fffa65, #ff9f1a);
+            border-radius: 6px;
+            transition: height 0.04s linear;
+        }
+        .charge-text {
+            margin-top: 4px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #ffd700;
+            text-shadow: 0 2px 4px #000;
+        }
+
+        /* Zone Dividers for Left/Right Answer Zones */
+        .zone-guide {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 2;
+            transition: background 0.25s ease;
+        }
+        #zone-left {
+            left: 0;
+            width: 48%;
+            border-right: 2px dashed rgba(255, 215, 0, 0.25);
+        }
+        #zone-right {
+            right: 0;
+            width: 48%;
+            border-left: 2px dashed rgba(255, 215, 0, 0.25);
+        }
+        .zone-guide.active-zone {
+            background: rgba(255, 215, 0, 0.07);
+        }
+
+        /* Webcam pip preview */
+        #webcam-preview-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 170px;
+            height: 120px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            background: #000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 20;
+            transition: opacity 0.3s;
+        }
+        #webcam-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* mirror */
+        }
+
+        /* 3D Chest/Option HTML Labels */
+        .opt-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            background: rgba(14, 18, 38, 0.88);
+            border: 2px solid #FFD700;
+            color: #fff;
+            padding: 8px 22px;
+            border-radius: 25px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            pointer-events: none;
+            z-index: 12;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+            transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+        .opt-label.hovered {
+            transform: translate(-50%, -55%) scale(1.15);
+            border-color: #00f3ff;
+            background: rgba(22, 33, 62, 0.95);
+            box-shadow: 0 0 25px #00f3ff;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .hud-top { gap: 12px; padding: 8px 16px; top: 12px; }
+            .hud-box { min-width: 65px; font-size: 0.85rem; }
+            .hud-box span { font-size: 1.15rem; }
+            #notification-banner { font-size: 1rem; top: 82px; padding: 6px 18px; }
+            .side-controls { top: auto; bottom: 20px; right: 20px; }
+            #webcam-preview-container { bottom: auto; top: 12px; left: 12px; width: 110px; height: 80px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hidden webcam source element -->
+    <video id="webcam-video" playsinline></video>
+
+    <!-- 3D Three.js canvas container -->
+    <div id="canvas-container"></div>
+
+    <!-- Zone Guides for visual feedback -->
+    <div id="zone-left" class="zone-guide"></div>
+    <div id="zone-right" class="zone-guide"></div>
+
+    <!-- Hand & Mouse Pointer and Charge HUD -->
+    <div id="virtual-pointer"></div>
+    <div id="charge-hud-container">
+        <div class="charge-track">
+            <div id="charge-fill" class="charge-fill"></div>
+        </div>
+        <div class="charge-text" id="charge-label">ค้างไว้!</div>
+    </div>
+
+    <!-- Live Webcam PiP Canvas -->
+    <div id="webcam-preview-container">
+        <canvas id="webcam-canvas"></canvas>
+    </div>
+
+    <!-- Main In-Game HUD -->
+    <div id="game-ui">
+        <div class="hud-top">
+            <div class="hud-box">
+                คะแนน
+                <span id="score-val">0</span>
+            </div>
+            <div class="hud-box">
+                เวลา
+                <span id="timer-val">60</span>
+            </div>
+            <div class="hud-box">
+                คอมโบ
+                <span id="streak-val">x0</span>
+            </div>
+            <div class="hud-box">
+                ข้อที่
+                <span id="round-val">1/10</span>
+            </div>
+        </div>
+
+        <div id="notification-banner">โจทย์: กำลังโหลดคำถาม...</div>
+        <div id="popup-center"></div>
+    </div>
+
+    <!-- Top-Right Controls -->
+    <div class="side-controls">
+        <button id="toggle-sound-btn" class="toggle-btn">
+            <span>🔊 เสียง</span>
+            <span id="sound-state-label">เปิด</span>
+        </button>
+        <button id="toggle-cam-btn" class="toggle-btn">
+            <span>📹 กล้องตรวจจับ</span>
+            <span id="cam-state-label">เปิด</span>
+        </button>
+        <button id="toggle-control-btn" class="toggle-btn off">
+            <span>🖱️ โหมดคลิก</span>
+            <span id="control-state-label">สำรอง</span>
+        </button>
+    </div>
+
+    <!-- Floating 3D Option Labels -->
+    <div id="label-left" class="opt-label">คำตอบ ซ้าย</div>
+    <div id="label-right" class="opt-label">คำตอบ ขวา</div>
+
+    <div id="start-screen" class="screen">
+        <div class="card">
+            <h1>🏴‍☠️ ล่าสมบัติมรณะ</h1>
+            <p style="color: #FFD700; font-weight: 500; margin-bottom: 8px;">พิชิตหีบสมบัติปริศนา - คณิตศาสตร์ ชั้นประถมศึกษาปีที่ 2</p>
+            <p>ยกฝ่ามือขึ้นหน้ากล้อง แล้วเลื่อนนิ้วชี้ไปชี้ที่ <b>หีบสมบัติ (ซ้าย หรือ ขวา)</b> ค้างไว้ 1 วินาทีเพื่อเปิดหีบ!</p>
+            
+            <div class="check-list">
+                <div class="check-item">
+                    <span>1. เชื่อมต่อระบบภาพ 3 มิติ</span>
+                    <span id="check-three" class="check-status waiting">กำลังเตรียม...</span>
+                </div>
+                <div class="check-item">
+                    <span>2. การขอสิทธิ์ใช้งานกล้องเว็บแคม</span>
+                    <span id="check-camera" class="check-status waiting"><div class="spinner"></div></span>
+                </div>
+                <div class="check-item">
+                    <span>3. โหลดโมเดลจับท่าทางมือ (MediaPipe)</span>
+                    <span id="check-mediapipe" class="check-status waiting"><div class="spinner"></div></span>
+                </div>
+            </div>
+
+            <p style="font-size: 0.95rem; color: #a4b0be; margin-bottom: 10px;">
+                💡 <i>หมายเหตุ: หากไม่มีกล้องหรือเปิดกล้องไม่ได้ สามารถกดปุ่ม <b>"เล่นด้วยเมาส์ / จอสัมผัส"</b> ได้ทันที</i>
+            </p>
+
+            <button id="start-btn" class="btn" disabled>
+                🚀 เริ่มการผจญภัยล่าสมบัติ
+            </button>
+            <br>
+            <button id="mouse-start-btn" class="btn btn-alt">
+                🖱️ เล่นด้วยเมาส์ / สัมผัสหน้าจอ
+            </button>
+        </div>
+    </div>
+
+    <div id="end-screen" class="screen hidden">
+        <div class="card">
+            <h1 id="end-title">🎉 สรุปผลการล่าสมบัติ</h1>
+            <p id="end-subtitle" style="font-size: 1.3rem; color: #00f3ff; margin-bottom: 16px;">ยอดนักคณิตศาสตร์ตัวจริง!</p>
+
+            <div class="check-list" style="text-align: left;">
+                <div class="check-item">
+                    <span>คะแนนรวมทั้งหมด:</span>
+                    <span id="final-score" style="color: #FFD700; font-size: 1.5rem; font-weight: bold;">0</span>
+                </div>
+                <div class="check-item">
+                    <span>ตอบถูกต้อง:</span>
+                    <span id="final-correct" style="color: #2ecc71; font-weight: bold;">0 / 10</span>
+                </div>
+                <div class="check-item">
+                    <span>คอมโบสูงสุด:</span>
+                    <span id="final-streak" style="color: #f39c12; font-weight: bold;">0 ครั้ง</span>
+                </div>
+            </div>
+
+            <p id="end-comment" style="color: #ecf0f1; margin: 15px 0;">ความพยายามยอดเยี่ยมมาก ฝึกฝนบ่อยๆ จะเก่งขึ้นแน่นอน!</p>
+
+            <button id="restart-btn" class="btn">
+                🔄 เล่นใหม่อีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* Global Game State */
+        const gameState = {
+            score: 0,
+            timeLeft: 60,
+            streak: 0,
+            maxStreak: 0,
+            currentQuestionIdx: 0,
+            totalQuestions: 10,
+            correctCount: 0,
+            isPlaying: false,
+            soundEnabled: true,
+            cameraActive: true,
+            mouseFallback: false,
+            pointerX: window.innerWidth / 2,
+            pointerY: window.innerHeight / 2,
+            isPointerActive: false,
+            selectedOption: null,
+            chargeProgress: 0, // 0 to 1
+            chargeSpeed: 0.038, // around 1 second to confirm
+            currentQuestion: null,
+            targetOptions: []
+        };
+
+        /* Sound System using Tone.js Synthesizers */
+        let synthCorrect, synthWrong, synthCharge, synthFanfare;
+        let isAudioReady = false;
+
+        function initAudio() {
+            if (isAudioReady) return;
+            try {
+                synthCorrect = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.3 }
+                }).toDestination();
+                synthCorrect.volume.value = -6;
+
+                synthWrong = new Tone.MembraneSynth().toDestination();
+                synthWrong.volume.value = -4;
+
+                synthCharge = new Tone.Oscillator(300, "sine").toDestination();
+                synthCharge.volume.value = -16;
+
+                synthFanfare = new Tone.PolySynth(Tone.Synth).toDestination();
+                synthFanfare.volume.value = -8;
+
+                isAudioReady = true;
+            } catch (e) {
+                console.warn("Audio init deferred:", e);
+            }
+        }
+
+        function playSound(type) {
+            if (!gameState.soundEnabled || !isAudioReady) return;
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                const now = Tone.now();
+                if (type === 'correct') {
+                    synthCorrect.triggerAttackRelease(["E5", "G#5", "B5"], "0.25", now);
+                } else if (type === 'wrong') {
+                    synthWrong.triggerAttackRelease("A1", "0.25", now);
+                } else if (type === 'tick') {
+                    synthWrong.triggerAttackRelease("C3", "0.04", now, 0.2);
+                } else if (type === 'win') {
+                    synthFanfare.triggerAttackRelease(["C4", "E4", "G4", "C5"], "0.6", now);
+                }
+            } catch (err) {
+                console.error("Audio playback error:", err);
+            }
+        }
+
+        /*
+          Grade 2 Thai Curriculum Standards:
+          - Addition and subtraction within 1,000 (with and without regrouping)
+          - Basic multiplication (tables of 2, 3, 4, 5, 10)
+          - Basic division concept (sharing equally)
+          - Real-world mini word problems for Grade 2
+        */
+        function generateGrade2Questions() {
+            const list = [];
+            const templates = [
+                // 1. Two-digit addition with carry
+                () => {
+                    const a = Math.floor(Math.random() * 50) + 25;
+                    const b = Math.floor(Math.random() * 40) + 15;
+                    const ans = a + b;
+                    const fake = ans + (Math.random() > 0.5 ? 10 : -10);
+                    return {
+                        text: `หาผลบวก: ${a} + ${b} = ?`,
+                        correct: ans,
+                        wrong: fake === ans ? ans + 5 : fake
+                    };
+                },
+                // 2. Three-digit addition / subtraction
+                () => {
+                    const a = Math.floor(Math.random() * 300) + 200;
+                    const b = Math.floor(Math.random() * 150) + 50;
+                    const ans = a - b;
+                    const fake = ans + (Math.random() > 0.5 ? 20 : -20);
+                    return {
+                        text: `หาผลลบ: ${a} - ${b} = ?`,
+                        correct: ans,
+                        wrong: fake === ans ? ans + 10 : fake
+                    };
+                },
+                // 3. Multiplication table of 2, 3, 5, 10
+                () => {
+                    const multipliers = [2, 3, 4, 5, 10];
+                    const m = multipliers[Math.floor(Math.random() * multipliers.length)];
+                    const n = Math.floor(Math.random() * 9) + 2;
+                    const ans = m * n;
+                    const fake = ans + (Math.random() > 0.5 ? m : -m);
+                    return {
+                        text: `ท่องสูตรคูณ: ${m} × ${n} = ?`,
+                        correct: ans,
+                        wrong: fake <= 0 || fake === ans ? ans + 4 : fake
+                    };
+                },
+                // 4. Equal sharing division
+                () => {
+                    const divisor = [2, 3, 4, 5][Math.floor(Math.random() * 4)];
+                    const quotient = Math.floor(Math.random() * 8) + 2;
+                    const dividend = divisor * quotient;
+                    const fake = quotient + (Math.random() > 0.5 ? 2 : -1);
+                    return {
+                        text: `แบ่งลูกอม ${dividend} เม็ด ให้เพื่อน ${divisor} คน คนละเท่าๆ กัน จะได้คนละกี่เม็ด?`,
+                        correct: quotient,
+                        wrong: fake <= 0 || fake === quotient ? quotient + 3 : fake
+                    };
+                },
+                // 5. Practical Word Problem: Money / Shopping
+                () => {
+                    const toy = (Math.floor(Math.random() * 6) + 3) * 10; // 30, 40.. 80
+                    const pay = 100;
+                    const change = pay - toy;
+                    const fake = change + (Math.random() > 0.5 ? 10 : -10);
+                    return {
+                        text: `ซื้อของเล่นราคา ${toy} บาท จ่ายแบงก์ 100 บาท จะได้เงินทอนกี่บาท?`,
+                        correct: change,
+                        wrong: fake === change ? change + 5 : fake
+                    };
+                },
+                // 6. Practical Word Problem: Animals / Farm
+                () => {
+                    const cows = Math.floor(Math.random() * 7) + 3;
+                    const totalLegs = cows * 4;
+                    const fake = totalLegs + (Math.random() > 0.5 ? 4 : -4);
+                    return {
+                        text: `ในฟาร์มมีวัว ${cows} ตัว วัวทั้งหมดมีขารวมกันกี่ขา?`,
+                        correct: totalLegs,
+                        wrong: fake <= 0 || fake === totalLegs ? totalLegs + 2 : fake
+                    };
+                }
+            ];
+
+            for (let i = 0; i < 10; i++) {
+                const generator = templates[i % templates.length];
+                const q = generator();
+                // Randomize which side is correct
+                const isLeftCorrect = Math.random() > 0.5;
+                list.push({
+                    text: q.text,
+                    options: [
+                        { side: 'left', val: isLeftCorrect ? q.correct : q.wrong, isCorrect: isLeftCorrect },
+                        { side: 'right', val: isLeftCorrect ? q.wrong : q.correct, isCorrect: !isLeftCorrect }
+                    ]
+                });
+            }
+            return list;
+        }
+
+        let questionBank = [];
+
+        let scene, camera, renderer;
+        let leftChestGroup, rightChestGroup;
+        let leftLid, rightLid;
+        let goldParticles;
+        const chestMaterials = {};
+
+        function initThreeScene() {
+            const container = document.getElementById('canvas-container');
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0e1124, 0.035);
+
+            camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
+            camera.position.set(0, 1.8, 6.5);
+            camera.lookAt(0, 0.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404868, 1.5);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfff3d1, 2.2);
+            dirLight.position.set(5, 12, 7);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            const pointLightLeft = new THREE.PointLight(0x00f3ff, 2.5, 8);
+            pointLightLeft.position.set(-2.5, 2, 1);
+            scene.add(pointLightLeft);
+
+            const pointLightRight = new THREE.PointLight(0xffb703, 2.5, 8);
+            pointLightRight.position.set(2.5, 2, 1);
+            scene.add(pointLightRight);
+
+            // Pirate Ship Deck / Ancient Stone Floor
+            const floorGeo = new THREE.PlaneGeometry(30, 30);
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0x1a2133,
+                roughness: 0.85,
+                metalness: 0.15
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -1;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Background Decorative Pillars / Torch stands
+            createEnvironmentProps();
+
+            // Build Procedural 3D Treasure Chests
+            leftChestGroup = createTreasureChest(-2.3, -0.4, 0);
+            rightChestGroup = createTreasureChest(2.3, -0.4, 0);
+            scene.add(leftChestGroup);
+            scene.add(rightChestGroup);
+
+            leftLid = leftChestGroup.userData.lid;
+            rightLid = rightChestGroup.userData.lid;
+
+            // Sparkling Gold Particles
+            createFloatingSparkles();
+
+            window.addEventListener('resize', onWindowResize);
+
+            // Mark system check success
+            const checkThree = document.getElementById('check-three');
+            checkThree.textContent = 'พร้อมใช้งาน ✓';
+            checkThree.className = 'check-status success';
+        }
+
+        function createTreasureChest(x, y, z) {
+            const group = new THREE.Group();
+            group.position.set(x, y, z);
+
+            // Wood and Gold Materials
+            const woodMat = new THREE.MeshStandardMaterial({
+                color: 0x5a3825,
+                roughness: 0.6,
+                metalness: 0.1
+            });
+            const goldMat = new THREE.MeshStandardMaterial({
+                color: 0xffcc00,
+                roughness: 0.3,
+                metalness: 0.85
+            });
+            const lockMat = new THREE.MeshStandardMaterial({
+                color: 0xsilver || 0xdddddd,
+                metalness: 0.9,
+                roughness: 0.2
+            });
+
+            // Chest Base Box
+            const baseGeo = new THREE.BoxGeometry(1.6, 0.8, 1.1);
+            const baseMesh = new THREE.Mesh(baseGeo, woodMat);
+            baseMesh.castShadow = true;
+            baseMesh.receiveShadow = true;
+            group.add(baseMesh);
+
+            // Base Gold Borders
+            const rimGeo = new THREE.BoxGeometry(1.65, 0.12, 1.15);
+            const rimMesh = new THREE.Mesh(rimGeo, goldMat);
+            rimMesh.position.y = 0.36;
+            group.add(rimMesh);
+
+            // Hinged Lid Pivot Group
+            const lidPivot = new THREE.Group();
+            lidPivot.position.set(0, 0.4, -0.55); // hinge at back top
+
+            const lidArchGeo = new THREE.CylinderGeometry(0.55, 0.55, 1.6, 16, 1, false, 0, Math.PI);
+            const lidMesh = new THREE.Mesh(lidArchGeo, woodMat);
+            lidMesh.rotation.z = Math.PI / 2;
+            lidMesh.position.set(0, 0, 0.55);
+            lidMesh.castShadow = true;
+            lidPivot.add(lidMesh);
+
+            // Gold band on lid
+            const bandGeo = new THREE.CylinderGeometry(0.57, 0.57, 0.2, 16, 1, false, 0, Math.PI);
+            const bandMesh = new THREE.Mesh(bandGeo, goldMat);
+            bandMesh.rotation.z = Math.PI / 2;
+            bandMesh.position.set(0, 0.01, 0.55);
+            lidPivot.add(bandMesh);
+
+            // Lock / Keyhole
+            const lockGeo = new THREE.BoxGeometry(0.2, 0.3, 0.1);
+            const lockMesh = new THREE.Mesh(lockGeo, goldMat);
+            lockMesh.position.set(0, 0, 1.1);
+            lidPivot.add(lockMesh);
+
+            group.add(lidPivot);
+            group.userData = { lid: lidPivot, initialRotX: 0, targetRotX: 0 };
+
+            return group;
+        }
+
+        function createEnvironmentProps() {
+            // Columns
+            const colGeo = new THREE.CylinderGeometry(0.4, 0.45, 8, 12);
+            const colMat = new THREE.MeshStandardMaterial({ color: 0x1e2738, roughness: 0.9 });
+            const col1 = new THREE.Mesh(colGeo, colMat);
+            col1.position.set(-6, 2, -2);
+            scene.add(col1);
+
+            const col2 = new THREE.Mesh(colGeo, colMat);
+            col2.position.set(6, 2, -2);
+            scene.add(col2);
+
+            // Ancient Wall Background
+            const wallGeo = new THREE.PlaneGeometry(26, 10);
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x141a29, roughness: 0.95 });
+            const wall = new THREE.Mesh(wallGeo, wallMat);
+            wall.position.set(0, 3, -5);
+            scene.add(wall);
+        }
+
+        function createFloatingSparkles() {
+            const count = 75;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            for (let i = 0; i < count * 3; i += 3) {
+                pos[i] = (Math.random() - 0.5) * 12;
+                pos[i + 1] = Math.random() * 5 - 0.5;
+                pos[i + 2] = (Math.random() - 0.5) * 6;
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({
+                color: 0xffd700,
+                size: 0.12,
+                transparent: true,
+                opacity: 0.75,
+                blending: THREE.AdditiveBlending
+            });
+            goldParticles = new THREE.Points(geo, mat);
+            scene.add(goldParticles);
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            updateHtmlLabelPositions();
+        }
+
+        const tempVec = new THREE.Vector3();
+        function updateHtmlLabelPositions() {
+            if (!leftChestGroup || !rightChestGroup) return;
+
+            // Project Left Chest Position to Screen
+            tempVec.set(-2.3, 0.9, 0).project(camera);
+            const lx = (tempVec.x * 0.5 + 0.5) * window.innerWidth;
+            const ly = (-(tempVec.y * 0.5) + 0.5) * window.innerHeight;
+            const leftLabel = document.getElementById('label-left');
+            leftLabel.style.left = `${lx}px`;
+            leftLabel.style.top = `${ly}px`;
+
+            // Project Right Chest Position to Screen
+            tempVec.set(2.3, 0.9, 0).project(camera);
+            const rx = (tempVec.x * 0.5 + 0.5) * window.innerWidth;
+            const ry = (-(tempVec.y * 0.5) + 0.5) * window.innerHeight;
+            const rightLabel = document.getElementById('label-right');
+            rightLabel.style.left = `${rx}px`;
+            rightLabel.style.top = `${ry}px`;
+        }
+
+        let handsDetector;
+        let cameraStream;
+        const videoElement = document.getElementById('webcam-video');
+        const pipCanvas = document.getElementById('webcam-canvas');
+        const pipCtx = pipCanvas.getContext('2d');
+
+        async function initCameraAndMediaPipe() {
+            const checkCam = document.getElementById('check-camera');
+            const checkMedia = document.getElementById('check-mediapipe');
+            const startBtn = document.getElementById('start-btn');
+
+            try {
+                // Initialize MediaPipe Hands
+                handsDetector = new Hands({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                });
+
+                handsDetector.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.6
+                });
+
+                handsDetector.onResults(onHandResults);
+                checkMedia.textContent = 'พร้อมใช้งาน ✓';
+                checkMedia.className = 'check-status success';
+
+                // Setup Webcam Stream
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+                    audio: false
+                });
+
+                videoElement.srcObject = stream;
+                await videoElement.play();
+
+                pipCanvas.width = 320;
+                pipCanvas.height = 240;
+
+                cameraStream = new Camera(videoElement, {
+                    onFrame: async () => {
+                        if (gameState.cameraActive && videoElement.readyState >= 2) {
+                            await handsDetector.send({ image: videoElement });
+                        }
+                    },
+                    width: 640,
+                    height: 480
+                });
+                cameraStream.start();
+
+                checkCam.textContent = 'ตรวจพบกล้อง ✓';
+                checkCam.className = 'check-status success';
+                startBtn.disabled = false;
+
+            } catch (err) {
+                console.warn("Camera or MediaPipe initialization warning:", err);
+                checkCam.textContent = 'ไม่พบกล้อง / ถูกปฏิเสธ ✗';
+                checkCam.className = 'check-status error';
+                checkMedia.textContent = 'ใช้โหมดเมาส์แทน';
+                checkMedia.className = 'check-status error';
+
+                // Automatically enable mouse mode and enable start button
+                gameState.mouseFallback = true;
+                updateControlButtons();
+                startBtn.disabled = false;
+                startBtn.textContent = '🕹️ เริ่มเล่นด้วยเมาส์ / สัมผัส';
+            }
+        }
+
+        function onHandResults(results) {
+            // Draw into PiP preview
+            pipCtx.save();
+            pipCtx.clearRect(0, 0, pipCanvas.width, pipCanvas.height);
+            pipCtx.drawImage(results.image, 0, 0, pipCanvas.width, pipCanvas.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                // Landmark 8 is Index Finger Tip, Landmark 9 is Middle Finger MCP
+                const indexTip = landmarks[8];
+                const wrist = landmarks[0];
+
+                // Draw simple skeleton on PiP canvas
+                drawHandSkeleton(landmarks);
+
+                if (gameState.isPlaying && !gameState.mouseFallback) {
+                    // Mirror X coordinate since webcam is mirrored
+                    const screenX = (1 - indexTip.x) * window.innerWidth;
+                    const screenY = indexTip.y * window.innerHeight;
+
+                    updatePointerPosition(screenX, screenY);
+                }
+            } else {
+                if (gameState.isPlaying && !gameState.mouseFallback) {
+                    hidePointer();
+                }
+            }
+            pipCtx.restore();
+        }
+
+        function drawHandSkeleton(landmarks) {
+            pipCtx.strokeStyle = '#00f3ff';
+            pipCtx.lineWidth = 3;
+            pipCtx.fillStyle = '#ffd700';
+
+            for (let i = 0; i < landmarks.length; i++) {
+                const x = landmarks[i].x * pipCanvas.width;
+                const y = landmarks[i].y * pipCanvas.height;
+                pipCtx.beginPath();
+                pipCtx.arc(x, y, 3, 0, 2 * Math.PI);
+                pipCtx.fill();
+            }
+        }
+
+        const pointerEl = document.getElementById('virtual-pointer');
+        const chargeHud = document.getElementById('charge-hud-container');
+        const chargeFill = document.getElementById('charge-fill');
+        const zoneLeft = document.getElementById('zone-left');
+        const zoneRight = document.getElementById('zone-right');
+        const labelLeft = document.getElementById('label-left');
+        const labelRight = document.getElementById('label-right');
+
+        function updatePointerPosition(x, y) {
+            gameState.pointerX = x;
+            gameState.pointerY = y;
+            gameState.isPointerActive = true;
+
+            pointerEl.style.display = 'block';
+            pointerEl.style.left = `${x}px`;
+            pointerEl.style.top = `${y}px`;
+
+            chargeHud.style.display = 'flex';
+            chargeHud.style.left = `${x}px`;
+            chargeHud.style.top = `${y}px`;
+
+            // Detect whether user is pointing at the Left chest or Right chest
+            // We use both screen zones (Left < 45% screen width, Right > 55% screen width)
+            // or hovering directly over the labels/chests
+            const screenW = window.innerWidth;
+            let currentZone = null;
+
+            if (x < screenW * 0.44) {
+                currentZone = 'left';
+            } else if (x > screenW * 0.56) {
+                currentZone = 'right';
+            }
+
+            handleSelectionHover(currentZone);
+        }
+
+        function hidePointer() {
+            gameState.isPointerActive = false;
+            pointerEl.style.display = 'none';
+            chargeHud.style.display = 'none';
+            handleSelectionHover(null);
+        }
+
+        function handleSelectionHover(zoneSide) {
+            // Visual feedback on zones & labels
+            if (zoneSide === 'left') {
+                zoneLeft.classList.add('active-zone');
+                zoneRight.classList.remove('active-zone');
+                labelLeft.classList.add('hovered');
+                labelRight.classList.remove('hovered');
+                leftChestGroup.userData.targetRotX = -0.3; // slight peek
+                rightChestGroup.userData.targetRotX = 0;
+            } else if (zoneSide === 'right') {
+                zoneRight.classList.add('active-zone');
+                zoneLeft.classList.remove('active-zone');
+                labelRight.classList.add('hovered');
+                labelLeft.classList.remove('hovered');
+                rightChestGroup.userData.targetRotX = -0.3;
+                leftChestGroup.userData.targetRotX = 0;
+            } else {
+                zoneLeft.classList.remove('active-zone');
+                zoneRight.classList.remove('active-zone');
+                labelLeft.classList.remove('hovered');
+                labelRight.classList.remove('hovered');
+                leftChestGroup.userData.targetRotX = 0;
+                rightChestGroup.userData.targetRotX = 0;
+            }
+
+            if (zoneSide !== gameState.selectedOption) {
+                gameState.selectedOption = zoneSide;
+                gameState.chargeProgress = 0;
+                chargeFill.style.height = '0%';
+            } else if (zoneSide !== null) {
+                // Progress charging while holding pointer in zone
+                gameState.chargeProgress += gameState.chargeSpeed;
+                const pct = Math.min(100, Math.floor(gameState.chargeProgress * 100));
+                chargeFill.style.height = `${pct}%`;
+
+                if (gameState.chargeProgress >= 1.0) {
+                    confirmChoice(zoneSide);
+                    gameState.chargeProgress = 0;
+                    chargeFill.style.height = '0%';
+                }
+            }
+        }
+
+        /* Mouse & Touch Listeners for fallback / hybrid controls */
+        window.addEventListener('mousemove', (e) => {
+            if (gameState.isPlaying && gameState.mouseFallback) {
+                updatePointerPosition(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('mousedown', (e) => {
+            if (gameState.isPlaying && gameState.mouseFallback) {
+                // Direct click on zone or chest immediately selects without waiting for charge
+                const screenW = window.innerWidth;
+                if (e.clientX < screenW * 0.48) {
+                    confirmChoice('left');
+                } else if (e.clientX > screenW * 0.52) {
+                    confirmChoice('right');
+                }
+            }
+        });
+
+        window.addEventListener('touchstart', (e) => {
+            if (gameState.isPlaying && gameState.mouseFallback && e.touches.length > 0) {
+                const t = e.touches[0];
+                updatePointerPosition(t.clientX, t.clientY);
+                const screenW = window.innerWidth;
+                if (t.clientX < screenW * 0.48) {
+                    confirmChoice('left');
+                } else if (t.clientX > screenW * 0.52) {
+                    confirmChoice('right');
+                }
+            }
+        }, { passive: true });
+
+        let lockInput = false;
+
+        function confirmChoice(side) {
+            if (lockInput || !gameState.isPlaying || !gameState.currentQuestion) return;
+            lockInput = true;
+
+            const selectedOpt = gameState.currentQuestion.options.find(o => o.side === side);
+            const isCorrect = selectedOpt && selectedOpt.isCorrect;
+
+            // Animate Chest Lid fully open
+            if (side === 'left') {
+                leftChestGroup.userData.targetRotX = -1.6;
+            } else {
+                rightChestGroup.userData.targetRotX = -1.6;
+            }
+
+            if (isCorrect) {
+                handleCorrectAnswer();
+            } else {
+                handleWrongAnswer();
+            }
+
+            // Move to next question after animation
+            setTimeout(() => {
+                leftChestGroup.userData.targetRotX = 0;
+                rightChestGroup.userData.targetRotX = 0;
+                gameState.currentQuestionIdx++;
+
+                if (gameState.currentQuestionIdx >= gameState.totalQuestions || gameState.timeLeft <= 0) {
+                    endGame();
+                } else {
+                    loadQuestion(gameState.currentQuestionIdx);
+                    lockInput = false;
+                }
+            }, 1200);
+        }
+
+        function handleCorrectAnswer() {
+            gameState.correctCount++;
+            gameState.streak++;
+            if (gameState.streak > gameState.maxStreak) {
+                gameState.maxStreak = gameState.streak;
+            }
+
+            // Streak multiplier
+            const bonus = (gameState.streak - 1) * 20;
+            const points = 100 + bonus;
+            gameState.score += points;
+
+            playSound('correct');
+            showPopupCenter(`ยอดเยี่ยม! +${points}`, 'popup-green');
+
+            // Visual notification banner bump
+            const banner = document.getElementById('notification-banner');
+            banner.style.background = 'rgba(46, 204, 113, 0.9)';
+            setTimeout(() => {
+                banner.style.background = 'rgba(10, 15, 30, 0.88)';
+            }, 500);
+
+            updateHUD();
+        }
+
+        function handleWrongAnswer() {
+            gameState.streak = 0;
+            playSound('wrong');
+            showPopupCenter(`ยังไม่ถูกนะ!`, 'popup-red');
+
+            const banner = document.getElementById('notification-banner');
+            banner.style.background = 'rgba(231, 76, 60, 0.9)';
+            setTimeout(() => {
+                banner.style.background = 'rgba(10, 15, 30, 0.88)';
+            }, 500);
+
+            updateHUD();
+        }
+
+        function showPopupCenter(text, cssClass) {
+            const popup = document.getElementById('popup-center');
+            popup.textContent = text;
+            popup.className = `show ${cssClass}`;
+            setTimeout(() => {
+                popup.className = '';
+            }, 850);
+        }
+
+        function updateHUD() {
+            document.getElementById('score-val').textContent = gameState.score;
+            document.getElementById('timer-val').textContent = gameState.timeLeft;
+            document.getElementById('streak-val').textContent = `x${gameState.streak}`;
+            document.getElementById('round-val').textContent = `${gameState.currentQuestionIdx + 1}/${gameState.totalQuestions}`;
+        }
+
+        function loadQuestion(idx) {
+            gameState.currentQuestion = questionBank[idx];
+            const q = gameState.currentQuestion;
+
+            document.getElementById('notification-banner').textContent = `คำถาม: ${q.text}`;
+
+            const optLeft = q.options.find(o => o.side === 'left');
+            const optRight = q.options.find(o => o.side === 'right');
+
+            labelLeft.textContent = `หีบซ้าย: ${optLeft.val}`;
+            labelRight.textContent = `หีบขวา: ${optRight.val}`;
+
+            updateHUD();
+        }
+
+        let gameTimerInterval = null;
+
+        function startGame() {
+            initAudio();
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('game-ui').style.display = 'block';
+
+            questionBank = generateGrade2Questions();
+            gameState.score = 0;
+            gameState.timeLeft = 60;
+            gameState.streak = 0;
+            gameState.maxStreak = 0;
+            gameState.currentQuestionIdx = 0;
+            gameState.correctCount = 0;
+            gameState.isPlaying = true;
+            lockInput = false;
+
+            loadQuestion(0);
+
+            if (gameTimerInterval) clearInterval(gameTimerInterval);
+            gameTimerInterval = setInterval(() => {
+                if (!gameState.isPlaying) return;
+                gameState.timeLeft--;
+                if (gameState.timeLeft <= 10 && gameState.timeLeft > 0) {
+                    playSound('tick');
+                }
+                updateHUD();
+
+                if (gameState.timeLeft <= 0) {
+                    clearInterval(gameTimerInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameState.isPlaying = false;
+            if (gameTimerInterval) clearInterval(gameTimerInterval);
+
+            hidePointer();
+            playSound('win');
+
+            document.getElementById('game-ui').style.display = 'none';
+            const endScreen = document.getElementById('end-screen');
+            endScreen.classList.remove('hidden');
+
+            document.getElementById('final-score').textContent = gameState.score;
+            document.getElementById('final-correct').textContent = `${gameState.correctCount} / ${gameState.totalQuestions}`;
+            document.getElementById('final-streak').textContent = `${gameState.maxStreak} ครั้ง`;
+
+            const comment = document.getElementById('end-comment');
+            if (gameState.correctCount >= 8) {
+                comment.textContent = '🌟 สุดยอดกัปตันนักคณิตศาสตร์! เธอมีความเฉลียวฉลาดและคิดคำนวณได้อย่างแม่นยำมาก!';
+            } else if (gameState.correctCount >= 5) {
+                comment.textContent = '👏 เก่งมาก! ตอบถูกได้เกินครึ่งแล้ว ฝึกฝนอีกนิดจะตอบถูกครบทุกข้อแน่นอน!';
+            } else {
+                comment.textContent = '💪 ยอดเยี่ยมที่มีความพยายาม! ลองเล่นใหม่อีกครั้งเพื่อพิชิตคะแนนที่สูงกว่าเดิมนะ!';
+            }
+        }
+
+        const toggleSoundBtn = document.getElementById('toggle-sound-btn');
+        const soundStateLabel = document.getElementById('sound-state-label');
+        const toggleCamBtn = document.getElementById('toggle-cam-btn');
+        const camStateLabel = document.getElementById('cam-state-label');
+        const toggleControlBtn = document.getElementById('toggle-control-btn');
+        const controlStateLabel = document.getElementById('control-state-label');
+        const pipContainer = document.getElementById('webcam-preview-container');
+
+        toggleSoundBtn.addEventListener('click', () => {
+            initAudio();
+            gameState.soundEnabled = !gameState.soundEnabled;
+            if (gameState.soundEnabled) {
+                toggleSoundBtn.classList.remove('off');
+                soundStateLabel.textContent = 'เปิด';
+            } else {
+                toggleSoundBtn.classList.add('off');
+                soundStateLabel.textContent = 'ปิด';
+            }
+        });
+
+        toggleCamBtn.addEventListener('click', () => {
+            gameState.cameraActive = !gameState.cameraActive;
+            if (gameState.cameraActive) {
+                toggleCamBtn.classList.remove('off');
+                camStateLabel.textContent = 'เปิด';
+                pipContainer.style.opacity = '1';
+            } else {
+                toggleCamBtn.classList.add('off');
+                camStateLabel.textContent = 'ปิด';
+                pipContainer.style.opacity = '0';
+            }
+        });
+
+        toggleControlBtn.addEventListener('click', () => {
+            gameState.mouseFallback = !gameState.mouseFallback;
+            updateControlButtons();
+        });
+
+        function updateControlButtons() {
+            if (gameState.mouseFallback) {
+                toggleControlBtn.classList.remove('off');
+                controlStateLabel.textContent = 'เมาส์เปิด';
+                pointerEl.style.display = 'block';
+            } else {
+                toggleControlBtn.classList.add('off');
+                controlStateLabel.textContent = 'สำรอง';
+            }
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('mouse-start-btn').addEventListener('click', () => {
+            gameState.mouseFallback = true;
+            updateControlButtons();
+            startGame();
+        });
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const elapsed = clock.getElapsedTime();
+
+            // Smoothly animate Lid Opening / Closing
+            if (leftChestGroup && leftLid) {
+                const targetL = leftChestGroup.userData.targetRotX || 0;
+                leftLid.rotation.x += (targetL - leftLid.rotation.x) * 0.14;
+            }
+            if (rightChestGroup && rightLid) {
+                const targetR = rightChestGroup.userData.targetRotX || 0;
+                rightLid.rotation.x += (targetR - rightLid.rotation.x) * 0.14;
+            }
+
+            // Gentle floating bob for the chests
+            if (leftChestGroup) {
+                leftChestGroup.position.y = -0.4 + Math.sin(elapsed * 2.2) * 0.05;
+            }
+            if (rightChestGroup) {
+                rightChestGroup.position.y = -0.4 + Math.sin(elapsed * 2.2 + 1.2) * 0.05;
+            }
+
+            // Slowly animate sparkles
+            if (goldParticles) {
+                goldParticles.rotation.y = elapsed * 0.05;
+            }
+
+            updateHtmlLabelPositions();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('load', () => {
+            initThreeScene();
+            initCameraAndMediaPipe();
+            animate();
+        });
+    </script>
+</body>
+</html>
